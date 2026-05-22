@@ -1,21 +1,38 @@
-import { IsString, IsNotEmpty, IsOptional } from "class-validator";
+import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateRoleDTO {
-    @IsString()
-    @IsNotEmpty()
-    name: string;
+  @ApiProperty({
+    description: 'The unique name of the role',
+    example: 'support-agent',
+  })
+  @IsString()
+  @IsNotEmpty()
+  name: string;
 
-    @IsString()
-    @IsNotEmpty()
-    description: string;
+  @ApiProperty({
+    description: 'A description of what permissions the role holds',
+    example: 'Handles customer support queries and ticket resolution',
+  })
+  @IsString()
+  @IsNotEmpty()
+  description: string;
 }
 
 export class UpdateRoleDTO {
-    @IsString()
-    @IsOptional()
-    name: string;
+  @ApiPropertyOptional({
+    description: 'The updated name of the role',
+    example: 'senior-agent',
+  })
+  @IsString()
+  @IsOptional()
+  name: string;
 
-    @IsString()
-    @IsOptional()
-    description: string;
+  @ApiPropertyOptional({
+    description: 'The updated description of the role',
+    example: 'Handles escalation and support queries',
+  })
+  @IsString()
+  @IsOptional()
+  description: string;
 }

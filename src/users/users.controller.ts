@@ -7,4 +7,3 @@ export class UsersController {
     constructor() {
     }
 }
-

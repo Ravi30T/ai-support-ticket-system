@@ -21,23 +21,23 @@ import { AuthModule } from './auth/auth.module';
           // console.log("connection success ", connection.name);
           // console.log("connection state", connection.readyState);
           return connection;
-        }
+        },
       }),
-      inject: [ConfigService]
+      inject: [ConfigService],
     }),
     JwtModule.registerAsync({
       useFactory: (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET'),
         signOptions: { expiresIn: '6h' },
-        global: true
+        global: true,
       }),
-      inject: [ConfigService]
+      inject: [ConfigService],
     }),
     UsersModule,
     RolesModule,
-    AuthModule
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule {}
