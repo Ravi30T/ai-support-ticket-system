@@ -1,6 +1,11 @@
 import { Controller, Post, Body, UseGuards, Res, Logger } from '@nestjs/common';
 import type { FastifyReply } from 'fastify';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { AuthGuard } from '../shared/guards/auth.guard';
 import { RolesGuard } from '../shared/guards/roles.guard';
 import { Roles } from '../shared/decorators/roles.decorator';
@@ -19,7 +24,7 @@ interface HttpExceptionLike {
 export class UsersController {
   private readonly logger = new Logger(UsersController.name);
 
-  constructor(private readonly categoryService: CategoryService) { }
+  constructor(private readonly categoryService: CategoryService) {}
 
   @Post('/category')
   @UseGuards(AuthGuard, RolesGuard)

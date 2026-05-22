@@ -5,9 +5,29 @@ import { JwtService } from '@nestjs/jwt';
 import * as crypto from 'crypto';
 import { UsersService } from '../users/users.service';
 import { RolesService } from '../roles/roles.service';
-import { UserToken, UserTokenDocument, UserTokenType, } from '../users/schemas/user-token.schema';
-import { RegisterUserDTO, InviteAdminDTO, SetupAdminDTO, VerifyUserDTO, LoginDTO } from './dto/auth.dto';
-import { hashPassword, comparePassword, hashToken, hashOtp } from '../common/utils/helpers';
+import {
+  UserToken,
+  UserTokenDocument,
+  UserTokenType,
+} from '../users/schemas/user-token.schema';
+import {
+  RegisterUserDTO,
+  InviteAdminDTO,
+  SetupAdminDTO,
+  VerifyUserDTO,
+  LoginDTO,
+} from './dto/auth.dto';
+import {
+  hashPassword,
+  comparePassword,
+  hashToken,
+  hashOtp,
+} from '../common/utils/helpers';
+import {
+  sendEmail,
+  getUserOtpEmailTemplate,
+  getAdminInviteEmailTemplate,
+} from '../common/mail.helper';
 
 @Injectable()
 export class AuthService {
@@ -24,7 +44,15 @@ export class AuthService {
   /**
    * Self-registration for standard users.
    */
-  async register(dto: RegisterUserDTO): Promise<{ success: boolean; status_code: number; message: string; data?: { token: string }; }> {
+  async register(
+    dto: RegisterUserDTO,
+    roleName: string = 'user',
+  ): Promise<{
+    success: boolean;
+    status_code: number;
+    message: string;
+    data?: { token: string };
+  }> {
     try {
       const email = dto.email.toLowerCase().trim();
       const existingUser = await this.usersService.findByEmail(email);
@@ -36,7 +64,7 @@ export class AuthService {
         };
       }
 
-      const userRole = await this.rolesService.findByName('user');
+      const userRole = await this.rolesService.findByName(roleName);
       const hashedPassword = hashPassword(dto.password);
 
       const newUser = await this.usersService.create({
@@ -53,16 +81,33 @@ export class AuthService {
         ],
       });
 
-      // Generate user verification token
+      // Generate user verification token & 6-digit OTP
       const rawToken = crypto.randomBytes(32).toString('hex');
       const hashedToken = hashToken(rawToken);
+      const otp = Math.floor(100000 + Math.random() * 900000); // 6-digit OTP
+      const hashedOtp = hashOtp(otp);
 
       await this.userTokenModel.create({
         user_id: newUser._id,
         token: hashedToken,
+        otp: hashedOtp,
         type: UserTokenType.USER_EMAIL_VERIFY,
         expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
       });
+
+      // Send verification email
+      try {
+        await sendEmail(
+          email,
+          'Verify Your Account - Smart Support Ticketing System',
+          getUserOtpEmailTemplate(newUser.name, otp),
+        );
+      } catch (mailError: any) {
+        this.logger.error(
+          `Failed to send verification email to ${email}`,
+          mailError instanceof Error ? mailError.stack : String(mailError),
+        );
+      }
 
       return {
         success: true,
@@ -72,7 +117,10 @@ export class AuthService {
         data: { token: rawToken },
       };
     } catch (error) {
-      this.logger.error('Error in user registration', error.stack);
+      this.logger.error(
+        'Error in user registration',
+        error instanceof Error ? error.stack : String(error),
+      );
       return {
         success: false,
         status_code: 500,
@@ -89,8 +137,10 @@ export class AuthService {
   ): Promise<{ success: boolean; status_code: number; message: string }> {
     try {
       const hashedToken = hashToken(dto.token);
+      const hashedOtp = hashOtp(dto.otp);
       const tokenDoc = await this.userTokenModel.findOne({
         token: hashedToken,
+        otp: hashedOtp,
         type: UserTokenType.USER_EMAIL_VERIFY,
         used_at: null,
         expires_at: { $gt: new Date() },
@@ -127,7 +177,10 @@ export class AuthService {
           'Email verified successfully. Your account is now active and you can log in.',
       };
     } catch (error) {
-      this.logger.error('Error in verifying user email', error.stack);
+      this.logger.error(
+        'Error in verifying user email',
+        error instanceof Error ? error.stack : String(error),
+      );
       return {
         success: false,
         status_code: 500,
@@ -202,7 +255,10 @@ export class AuthService {
         },
       };
     } catch (error) {
-      this.logger.error('Error in user login', error.stack);
+      this.logger.error(
+        'Error in user login',
+        error instanceof Error ? error.stack : String(error),
+      );
       return {
         success: false,
         status_code: 500,
@@ -249,7 +305,7 @@ export class AuthService {
       const hashedToken = hashToken(rawToken);
       const otp = Math.floor(100000 + Math.random() * 900000); // 6-digit OTP
 
-      console.log("OTP: ", otp);
+      console.log('OTP: ', otp);
 
       const hashedOtp = hashOtp(otp);
 
@@ -261,16 +317,33 @@ export class AuthService {
         expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
       });
 
+      // Send invitation email
+      try {
+        await sendEmail(
+          email,
+          'Admin Invitation - Smart Support Ticketing System',
+          getAdminInviteEmailTemplate(newAdmin.name, otp, rawToken),
+        );
+      } catch (mailError: any) {
+        this.logger.error(
+          `Failed to send admin invitation email to ${email}`,
+          mailError instanceof Error ? mailError.stack : String(mailError),
+        );
+      }
+
       return {
         success: true,
         status_code: 201,
         message: 'Admin user invited successfully. Setup password required.',
         data: {
-          token: rawToken
+          token: rawToken,
         },
       };
     } catch (error) {
-      this.logger.error('Error in inviting admin', error.stack);
+      this.logger.error(
+        'Error in inviting admin',
+        error instanceof Error ? error.stack : String(error),
+      );
       return {
         success: false,
         status_code: 500,
@@ -282,7 +355,9 @@ export class AuthService {
   /**
    * Complete admin setup.
    */
-  async setupAdmin(dto: SetupAdminDTO): Promise<{ success: boolean; status_code: number; message: string }> {
+  async setupAdmin(
+    dto: SetupAdminDTO,
+  ): Promise<{ success: boolean; status_code: number; message: string }> {
     try {
       const hashedToken = hashToken(dto.token);
       const hashedOtp = hashOtp(dto.otp);
@@ -334,7 +409,10 @@ export class AuthService {
           'Admin account setup completed successfully. You can now log in.',
       };
     } catch (error) {
-      this.logger.error('Error in admin password setup', error.stack);
+      this.logger.error(
+        'Error in admin password setup',
+        error instanceof Error ? error.stack : String(error),
+      );
       return {
         success: false,
         status_code: 500,

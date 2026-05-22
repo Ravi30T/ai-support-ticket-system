@@ -3,7 +3,13 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Tickets, TicketsDocument } from '../schemas/ticket.schema';
 import { Comments, CommentsDocument } from '../schemas/comment.schema';
-import { CreateTicketDTO, UpdateTicketStatusDTO, AssignTicketDTO, AddCommentDTO, GetTicketsQueryDTO, } from '../dto/ticket.dto';
+import {
+  CreateTicketDTO,
+  UpdateTicketStatusDTO,
+  AssignTicketDTO,
+  AddCommentDTO,
+  GetTicketsQueryDTO,
+} from '../dto/ticket.dto';
 import { UsersService } from '../../users/users.service';
 import { CategoryService } from './category.service';
 
@@ -16,13 +22,24 @@ export class TicketsService {
   private readonly logger = new Logger(TicketsService.name);
 
   constructor(
-    @InjectModel(Tickets.name) private readonly ticketsModel: Model<TicketsDocument>,
-    @InjectModel(Comments.name) private readonly commentsModel: Model<CommentsDocument>,
+    @InjectModel(Tickets.name)
+    private readonly ticketsModel: Model<TicketsDocument>,
+    @InjectModel(Comments.name)
+    private readonly commentsModel: Model<CommentsDocument>,
     private readonly categoryService: CategoryService,
-    @Inject(forwardRef(() => UsersService)) private readonly usersService: UsersService,
-  ) { }
+    @Inject(forwardRef(() => UsersService))
+    private readonly usersService: UsersService,
+  ) {}
 
-  async createTicket(dto: CreateTicketDTO, userId: string): Promise<{ success: boolean; status_code: number; message: string; data?: any; }> {
+  async createTicket(
+    dto: CreateTicketDTO,
+    userId: string,
+  ): Promise<{
+    success: boolean;
+    status_code: number;
+    message: string;
+    data?: any;
+  }> {
     try {
       if (dto.category) {
         const category = await this.categoryService.findById(dto.category);
@@ -59,7 +76,17 @@ export class TicketsService {
     }
   }
 
-  async updateTicketStatus(ticketId: string, dto: UpdateTicketStatusDTO, userId: string, userRole: string,): Promise<{ success: boolean; status_code: number; message: string; data?: any; }> {
+  async updateTicketStatus(
+    ticketId: string,
+    dto: UpdateTicketStatusDTO,
+    userId: string,
+    userRole: string,
+  ): Promise<{
+    success: boolean;
+    status_code: number;
+    message: string;
+    data?: any;
+  }> {
     const ticket = await this.ticketsModel.findById(ticketId).exec();
     if (!ticket) {
       return {
@@ -90,7 +117,15 @@ export class TicketsService {
     };
   }
 
-  async assignTicket(ticketId: string, dto: AssignTicketDTO,): Promise<{ success: boolean; status_code: number; message: string; data?: any; }> {
+  async assignTicket(
+    ticketId: string,
+    dto: AssignTicketDTO,
+  ): Promise<{
+    success: boolean;
+    status_code: number;
+    message: string;
+    data?: any;
+  }> {
     const ticket = await this.ticketsModel.findById(ticketId).exec();
     if (!ticket) {
       return {
@@ -130,7 +165,17 @@ export class TicketsService {
     };
   }
 
-  async addComment(ticketId: string, dto: AddCommentDTO, userId: string, userRole: string,): Promise<{ success: boolean; status_code: number; message: string; data?: any; }> {
+  async addComment(
+    ticketId: string,
+    dto: AddCommentDTO,
+    userId: string,
+    userRole: string,
+  ): Promise<{
+    success: boolean;
+    status_code: number;
+    message: string;
+    data?: any;
+  }> {
     const ticket = await this.ticketsModel.findById(ticketId).exec();
     if (!ticket) {
       return {
@@ -167,7 +212,22 @@ export class TicketsService {
     };
   }
 
-  async listTickets(query: GetTicketsQueryDTO, userId: string, userRole: string): Promise<{ success: boolean; status_code: number; message: string; data: { tickets: any[]; total: number; page: number; limit: number; pages: number; }; }> {
+  async listTickets(
+    query: GetTicketsQueryDTO,
+    userId: string,
+    userRole: string,
+  ): Promise<{
+    success: boolean;
+    status_code: number;
+    message: string;
+    data: {
+      tickets: any[];
+      total: number;
+      page: number;
+      limit: number;
+      pages: number;
+    };
+  }> {
     const filter: {
       created_by?: Types.ObjectId;
       status?: string;

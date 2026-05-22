@@ -1,8 +1,27 @@
-import { Controller, Post, Body, Req, Res, UseGuards, Logger } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Req,
+  Res,
+  UseGuards,
+  Logger,
+} from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { RegisterUserDTO, InviteAdminDTO, SetupAdminDTO, VerifyUserDTO, LoginDTO } from './dto/auth.dto';
+import {
+  RegisterUserDTO,
+  InviteAdminDTO,
+  SetupAdminDTO,
+  VerifyUserDTO,
+  LoginDTO,
+} from './dto/auth.dto';
 import { AuthGuard } from '../shared/guards/auth.guard';
 import { RolesGuard } from '../shared/guards/roles.guard';
 import { Roles } from '../shared/decorators/roles.decorator';
@@ -12,7 +31,7 @@ import { Roles } from '../shared/decorators/roles.decorator';
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 
-  constructor(private readonly authService: AuthService) { }
+  constructor(private readonly authService: AuthService) {}
 
   /**
    * API for user registration.
@@ -61,7 +80,7 @@ export class AuthController {
   @ApiResponse({ status: 500, description: 'Internal server error.' })
   async adminRegister(@Res() res: FastifyReply, @Body() dto: RegisterUserDTO) {
     try {
-      const result = await this.authService.register(dto);
+      const result = await this.authService.register(dto, 'admin');
       return res.status(result.status_code).send(result);
     } catch (error) {
       this.logger.error(
@@ -130,7 +149,10 @@ export class AuthController {
       const result = await this.authService.login(dto);
       return res.status(result.status_code).send(result);
     } catch (error) {
-      this.logger.error('Error in login endpoint', error instanceof Error ? error.stack : String(error));
+      this.logger.error(
+        'Error in login endpoint',
+        error instanceof Error ? error.stack : String(error),
+      );
       return res.status(500).send({
         success: false,
         status_code: 500,

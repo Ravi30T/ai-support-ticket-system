@@ -14,4 +14,4 @@ import { TicketsModule } from '../tickets/tickets.module';
   providers: [UsersService],
   exports: [UsersService],
 })
-export class UsersModule { }
+export class UsersModule {}
