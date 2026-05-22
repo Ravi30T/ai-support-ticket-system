@@ -64,6 +64,9 @@ async function bootstrap() {
   await app.listen(port);
 
   console.log(`Server started on port : ${port}`);
+  console.log(
+    `Swagger documentation available at http://localhost:${port}/api`,
+  );
 }
 bootstrap().catch((err) => {
   console.error('Error starting server:', err);
