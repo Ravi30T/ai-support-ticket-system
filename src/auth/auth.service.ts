@@ -5,19 +5,9 @@ import { JwtService } from '@nestjs/jwt';
 import * as crypto from 'crypto';
 import { UsersService } from '../users/users.service';
 import { RolesService } from '../roles/roles.service';
-import {
-  UserToken,
-  UserTokenDocument,
-  UserTokenType,
-} from '../users/schemas/user-token.schema';
-import {
-  RegisterUserDTO,
-  InviteAdminDTO,
-  SetupAdminDTO,
-  VerifyUserDTO,
-  LoginDTO,
-} from './dto/auth.dto';
-import { UsersDocument } from '../users/schemas/user.schema';
+import { UserToken, UserTokenDocument, UserTokenType, } from '../users/schemas/user-token.schema';
+import { RegisterUserDTO, InviteAdminDTO, SetupAdminDTO, VerifyUserDTO, LoginDTO } from './dto/auth.dto';
+import { hashPassword, comparePassword, hashToken, hashOtp } from '../common/utils/helpers';
 
 @Injectable()
 export class AuthService {
@@ -29,49 +19,12 @@ export class AuthService {
     private readonly jwtService: JwtService,
     @InjectModel(UserToken.name)
     private readonly userTokenModel: Model<UserTokenDocument>,
-  ) {}
-
-  /**
-   * Hashes a password using PBKDF2 sync.
-   */
-  private hashPassword(password: string): string {
-    const salt = crypto.randomBytes(16).toString('hex');
-    const hash = crypto
-      .pbkdf2Sync(password, salt, 10000, 64, 'sha512')
-      .toString('hex');
-    return `${salt}:${hash}`;
-  }
-
-  /**
-   * Compares a plain password against a stored hashed password.
-   */
-  private comparePassword(password: string, storedHash: string): boolean {
-    if (!storedHash || !storedHash.includes(':')) {
-      return false;
-    }
-    const [salt, hash] = storedHash.split(':');
-    const checkHash = crypto
-      .pbkdf2Sync(password, salt, 10000, 64, 'sha512')
-      .toString('hex');
-    return hash === checkHash;
-  }
-
-  /**
-   * Hashes a verification/setup token using SHA-256 for secure DB storage.
-   */
-  private hashToken(token: string): string {
-    return crypto.createHash('sha256').update(token).digest('hex');
-  }
+  ) { }
 
   /**
    * Self-registration for standard users.
    */
-  async register(dto: RegisterUserDTO): Promise<{
-    success: boolean;
-    status_code: number;
-    message: string;
-    data?: { token: string };
-  }> {
+  async register(dto: RegisterUserDTO): Promise<{ success: boolean; status_code: number; message: string; data?: { token: string }; }> {
     try {
       const email = dto.email.toLowerCase().trim();
       const existingUser = await this.usersService.findByEmail(email);
@@ -83,11 +36,8 @@ export class AuthService {
         };
       }
 
-      const userRole = await this.rolesService.findOrCreateRole(
-        'user',
-        'Regular system user',
-      );
-      const hashedPassword = this.hashPassword(dto.password);
+      const userRole = await this.rolesService.findByName('user');
+      const hashedPassword = hashPassword(dto.password);
 
       const newUser = await this.usersService.create({
         name: dto.name,
@@ -105,7 +55,7 @@ export class AuthService {
 
       // Generate user verification token
       const rawToken = crypto.randomBytes(32).toString('hex');
-      const hashedToken = this.hashToken(rawToken);
+      const hashedToken = hashToken(rawToken);
 
       await this.userTokenModel.create({
         user_id: newUser._id,
@@ -138,7 +88,7 @@ export class AuthService {
     dto: VerifyUserDTO,
   ): Promise<{ success: boolean; status_code: number; message: string }> {
     try {
-      const hashedToken = this.hashToken(dto.token);
+      const hashedToken = hashToken(dto.token);
       const tokenDoc = await this.userTokenModel.findOne({
         token: hashedToken,
         type: UserTokenType.USER_EMAIL_VERIFY,
@@ -209,7 +159,7 @@ export class AuthService {
       const activePassObj = user.password_obj.find((p) => p.is_active);
       if (
         !activePassObj ||
-        !this.comparePassword(dto.password, activePassObj.password)
+        !comparePassword(dto.password, activePassObj.password)
       ) {
         return {
           success: false,
@@ -271,7 +221,7 @@ export class AuthService {
     success: boolean;
     status_code: number;
     message: string;
-    data?: { token: string; otp: number };
+    data?: { token: string };
   }> {
     try {
       const email = dto.email.toLowerCase().trim();
@@ -284,10 +234,7 @@ export class AuthService {
         };
       }
 
-      const adminRole = await this.rolesService.findOrCreateRole(
-        'admin',
-        'System administrator',
-      );
+      const adminRole = await this.rolesService.findByName('admin');
       const newAdmin = await this.usersService.create({
         name: dto.name,
         email,
@@ -299,13 +246,17 @@ export class AuthService {
 
       // Generate setup token & 6-digit OTP
       const rawToken = crypto.randomBytes(32).toString('hex');
-      const hashedToken = this.hashToken(rawToken);
+      const hashedToken = hashToken(rawToken);
       const otp = Math.floor(100000 + Math.random() * 900000); // 6-digit OTP
+
+      console.log("OTP: ", otp);
+
+      const hashedOtp = hashOtp(otp);
 
       await this.userTokenModel.create({
         user_id: newAdmin._id,
         token: hashedToken,
-        otp,
+        otp: hashedOtp,
         type: UserTokenType.ADMIN_SETUP_PASSWORD,
         expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
       });
@@ -315,8 +266,7 @@ export class AuthService {
         status_code: 201,
         message: 'Admin user invited successfully. Setup password required.',
         data: {
-          token: rawToken,
-          otp,
+          token: rawToken
         },
       };
     } catch (error) {
@@ -332,14 +282,13 @@ export class AuthService {
   /**
    * Complete admin setup.
    */
-  async setupAdmin(
-    dto: SetupAdminDTO,
-  ): Promise<{ success: boolean; status_code: number; message: string }> {
+  async setupAdmin(dto: SetupAdminDTO): Promise<{ success: boolean; status_code: number; message: string }> {
     try {
-      const hashedToken = this.hashToken(dto.token);
+      const hashedToken = hashToken(dto.token);
+      const hashedOtp = hashOtp(dto.otp);
       const tokenDoc = await this.userTokenModel.findOne({
         token: hashedToken,
-        otp: dto.otp,
+        otp: hashedOtp,
         type: UserTokenType.ADMIN_SETUP_PASSWORD,
         used_at: null,
         expires_at: { $gt: new Date() },
@@ -360,7 +309,7 @@ export class AuthService {
         return { success: false, status_code: 404, message: 'User not found' };
       }
 
-      const hashedPassword = this.hashPassword(dto.password);
+      const hashedPassword = hashPassword(dto.password);
 
       // Update user password and set to active
       await this.usersService.update(user._id.toString(), {

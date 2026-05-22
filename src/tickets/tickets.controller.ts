@@ -42,7 +42,7 @@ export class TicketsController {
     try {
       const userId = req.user.sub;
       const result = await this.ticketsService.createTicket(dto, userId);
-      return res.code(result.status_code).send(result);
+      return res.status(result.status_code).send(result);
     } catch (error: unknown) {
       const err = error as HttpExceptionLike;
       this.logger.error('Error in createTicket', err.stack);
@@ -66,7 +66,7 @@ export class TicketsController {
       const userId = req.user.sub;
       const userRole = req.user.role;
       const result = await this.ticketsService.updateTicketStatus(id, dto, userId, userRole);
-      return res.code(result.status_code).send(result);
+      return res.status(result.status_code).send(result);
     } catch (error: unknown) {
       const err = error as HttpExceptionLike;
       this.logger.error('Error in updateTicketStatus', err.stack);

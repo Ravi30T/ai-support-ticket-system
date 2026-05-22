@@ -1,27 +1,8 @@
-import {
-  Controller,
-  Post,
-  Body,
-  Req,
-  Res,
-  UseGuards,
-  Logger,
-} from '@nestjs/common';
+import { Controller, Post, Body, Req, Res, UseGuards, Logger } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import {
-  RegisterUserDTO,
-  InviteAdminDTO,
-  SetupAdminDTO,
-  VerifyUserDTO,
-  LoginDTO,
-} from './dto/auth.dto';
+import { RegisterUserDTO, InviteAdminDTO, SetupAdminDTO, VerifyUserDTO, LoginDTO } from './dto/auth.dto';
 import { AuthGuard } from '../shared/guards/auth.guard';
 import { RolesGuard } from '../shared/guards/roles.guard';
 import { Roles } from '../shared/decorators/roles.decorator';
@@ -31,7 +12,7 @@ import { Roles } from '../shared/decorators/roles.decorator';
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
   /**
    * API for user registration.
