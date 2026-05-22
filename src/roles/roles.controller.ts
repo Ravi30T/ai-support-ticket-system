@@ -11,6 +11,9 @@ export class RolesController {
     constructor(private readonly rolesService: RolesService) {
     }
 
+    /**
+     * API for creating a role.
+    */
     @Post()
     async createRole(@Req() req: FastifyRequest, @Res() res: FastifyReply, @Body() role: CreateRoleDTO) {
         try {
@@ -25,6 +28,9 @@ export class RolesController {
         }
     }
 
+    /**
+     * API for updating a role.
+    */
     @Put(':roleId')
     async updateRole(@Req() req: FastifyRequest, @Res() res: FastifyReply, @Body() role: UpdateRoleDTO, @Param('roleId') roleId: string) {
         try {

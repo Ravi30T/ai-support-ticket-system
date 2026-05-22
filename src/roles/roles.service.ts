@@ -41,4 +41,43 @@ export class RolesService {
             return { success: false, status_code: 500, message: "Failed to update role" };
         }
     }
+
+    async findByName(name: string): Promise<{ success: boolean, status_code: number, message: string, role?: RolesDocument }> {
+        try {
+            const role = await this.rolesModel.findOne({ name: name.toLowerCase().trim() }).exec();
+            if (!role) {
+                return { success: false, status_code: 404, message: "Role not found" };
+            }
+            return { success: true, status_code: 200, message: "Role found successfully", role };
+        } catch (error) {
+            this.logger.error("Error finding role by name", JSON.stringify(error, null, 2));
+            return { success: false, status_code: 500, message: "Failed to find role" };
+        }
+    }
+
+    async findOrCreateRole(name: string, description?: string): Promise<{ success: boolean, status_code: number, message: string, role?: RolesDocument }> {
+        try {
+            const normalizedName = name.toLowerCase().trim();
+            let role = await this.rolesModel.findOne({ name: normalizedName }).exec();
+            if (!role) {
+                const newRole = await this.rolesModel.create({
+                    name: normalizedName,
+                    description: description || `${name} role`,
+                    is_active: true
+                });
+
+                if (newRole) {
+                    this.logger.log(`New role ${normalizedName} created successfully`, JSON.stringify(newRole, null, 2));
+                    return { success: true, status_code: 201, message: "Role created successfully", role: newRole };
+                }
+
+                return { success: false, status_code: 500, message: "Failed to create role" };
+            }
+            this.logger.log(`Role ${normalizedName} already exists`, JSON.stringify(role, null, 2));
+            return { success: true, status_code: 200, message: "Role already exists", role: role };
+        } catch (error) {
+            this.logger.error("Error finding or creating role", JSON.stringify(error, null, 2));
+            return { success: false, status_code: 500, message: "Failed to find or create role" };
+        }
+    }
 }

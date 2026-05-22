@@ -33,6 +33,9 @@ export class UserToken extends Document {
     @Prop({ required: true, type: Date })
     expires_at: Date;
 
+    @Prop({ required: false, type: Number })
+    otp?: number;
+
     /** Set when the token is successfully consumed. Null means unused. */
     @Prop({ required: false, type: Date, default: null })
     used_at: Date | null;

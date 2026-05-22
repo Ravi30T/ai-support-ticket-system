@@ -54,3 +54,31 @@ export class SetupAdminDTO {
     @MinLength(8)
     password: string;
 }
+
+/**
+ * DTO for verifying user email registration.
+ */
+export class VerifyUserDTO {
+    @IsString()
+    @IsNotEmpty()
+    token: string;
+
+    @IsNumber()
+    @IsNotEmpty()
+    otp: number;
+}
+
+/**
+ * DTO for user login.
+ */
+export class LoginDTO {
+    @IsString()
+    @IsNotEmpty()
+    @IsEmail()
+    email: string;
+
+    @IsString()
+    @IsNotEmpty()
+    @MinLength(8)
+    password: string;
+}
