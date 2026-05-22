@@ -31,13 +31,13 @@ export class AuthController {
   async userRegister(@Res() res: FastifyReply, @Body() dto: RegisterUserDTO) {
     try {
       const result = await this.authService.register(dto);
-      return res.code(result.status_code).send(result);
+      return res.status(result.status_code).send(result);
     } catch (error) {
       this.logger.error(
         'Error in register endpoint',
         error instanceof Error ? error.stack : String(error),
       );
-      return res.code(500).send({
+      return res.status(500).send({
         success: false,
         status_code: 500,
         message: 'Internal server error',
@@ -62,13 +62,13 @@ export class AuthController {
   async adminRegister(@Res() res: FastifyReply, @Body() dto: RegisterUserDTO) {
     try {
       const result = await this.authService.register(dto);
-      return res.code(result.status_code).send(result);
+      return res.status(result.status_code).send(result);
     } catch (error) {
       this.logger.error(
         'Error in register endpoint',
         error instanceof Error ? error.stack : String(error),
       );
-      return res.code(500).send({
+      return res.status(500).send({
         success: false,
         status_code: 500,
         message: 'Internal server error',
@@ -95,13 +95,13 @@ export class AuthController {
   async verify(@Res() res: FastifyReply, @Body() dto: VerifyUserDTO) {
     try {
       const result = await this.authService.verifyUser(dto);
-      return res.code(result.status_code).send(result);
+      return res.status(result.status_code).send(result);
     } catch (error) {
       this.logger.error(
         'Error in verify endpoint',
         error instanceof Error ? error.stack : String(error),
       );
-      return res.code(500).send({
+      return res.status(500).send({
         success: false,
         status_code: 500,
         message: 'Internal server error',
@@ -128,13 +128,10 @@ export class AuthController {
   async login(@Res() res: FastifyReply, @Body() dto: LoginDTO) {
     try {
       const result = await this.authService.login(dto);
-      return res.code(result.status_code).send(result);
+      return res.status(result.status_code).send(result);
     } catch (error) {
-      this.logger.error(
-        'Error in login endpoint',
-        error instanceof Error ? error.stack : String(error),
-      );
-      return res.code(500).send({
+      this.logger.error('Error in login endpoint', error instanceof Error ? error.stack : String(error));
+      return res.status(500).send({
         success: false,
         status_code: 500,
         message: 'Internal server error',
@@ -170,13 +167,13 @@ export class AuthController {
     try {
       const creatorId = req.user.sub;
       const result = await this.authService.inviteAdmin(dto, creatorId);
-      return res.code(result.status_code).send(result);
+      return res.status(result.status_code).send(result);
     } catch (error) {
       this.logger.error(
         'Error in invite-admin endpoint',
         error instanceof Error ? error.stack : String(error),
       );
-      return res.code(500).send({
+      return res.status(500).send({
         success: false,
         status_code: 500,
         message: 'Internal server error',
@@ -201,13 +198,13 @@ export class AuthController {
   async setupAdmin(@Res() res: FastifyReply, @Body() dto: SetupAdminDTO) {
     try {
       const result = await this.authService.setupAdmin(dto);
-      return res.code(result.status_code).send(result);
+      return res.status(result.status_code).send(result);
     } catch (error) {
       this.logger.error(
         'Error in setup-admin endpoint',
         error instanceof Error ? error.stack : String(error),
       );
-      return res.code(500).send({
+      return res.status(500).send({
         success: false,
         status_code: 500,
         message: 'Internal server error',

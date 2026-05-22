@@ -14,7 +14,7 @@ import { ApiProperty } from '@nestjs/swagger';
 export class RegisterUserDTO {
   @ApiProperty({
     description: 'The full name of the user',
-    example: 'John Doe',
+    example: 'Ravi Teja',
   })
   @IsString()
   @IsNotEmpty()
@@ -22,7 +22,7 @@ export class RegisterUserDTO {
 
   @ApiProperty({
     description: 'The email address of the user',
-    example: 'john.doe@example.com',
+    example: 'raviteja@gmail.com',
   })
   @IsString()
   @IsNotEmpty()
@@ -31,7 +31,7 @@ export class RegisterUserDTO {
 
   @ApiProperty({
     description: 'The password for the user account (minimum 8 characters)',
-    example: 'SecurePassword123',
+    example: 'Ravi@123',
   })
   @IsString()
   @IsNotEmpty()
@@ -122,7 +122,7 @@ export class VerifyUserDTO {
 export class LoginDTO {
   @ApiProperty({
     description: 'The email address of the user',
-    example: 'john.doe@example.com',
+    example: 'raviteja@gmail.com',
   })
   @IsString()
   @IsNotEmpty()
@@ -131,7 +131,7 @@ export class LoginDTO {
 
   @ApiProperty({
     description: 'The password for the user account',
-    example: 'SecurePassword123',
+    example: 'Ravi@123',
   })
   @IsString()
   @IsNotEmpty()
