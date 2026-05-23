@@ -1,98 +1,191 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# 🤖 Smart Support Ticketing System — API Server
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+---
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## 🚀 Key Features
 
-## Description
+*   **Secure Authentication & RBAC**: JWT-based authentication with role-based access control (Admin, Support Agent, Customer).
+*   **AI Support Assist (Google Gemini)**:
+    *   Automatic category suggestion for new tickets.
+    *   Intelligent priority assignment based on ticket descriptions.
+    *   Customer sentiment analysis (e.g. Frustrated, Neutral, Happy).
+    *   AI-suggested replies for support agents.
+*   **Real-time Synced Updates**: Real-time event broadcasting using **Socket.IO** (WebSockets) for ticket status, assignment, and comment updates.
+*   **Activity Tracking (Audit Trail)**: Deep history logs documenting every status change, assignment update, and comment.
+*   **Email Notifications**: Immediate updates sent via email (powered by SMTP/Nodemailer/Resend) when tickets are created, assigned, or updated.
+*   **Fastify Powered & Rate Limited**: Designed using `Fastify` for lightning-fast request parsing and throughput, protected by custom rate limiting.
+*   **Swagger API Documentation**: Fully documented interactive endpoints.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+---
 
-## Project setup
+## 🛠 Tech Stack
 
+*   **Framework**: [NestJS](https://nestjs.com/) (v11.x) with Fastify adapter.
+*   **Database**: [MongoDB](https://www.mongodb.com/) via Mongoose.
+*   **AI Engine**: [Google Generative AI](https://ai.google.dev/) (Gemini Flash).
+*   **WebSockets**: [Socket.IO](https://socket.io/).
+*   **Emailing**: [Nodemailer](https://nodemailer.com/).
+*   **Documentation**: [Swagger / OpenAPI](https://swagger.io/).
+
+---
+
+## ⚙️ Environment Variables
+
+The server uses the following environment variables. Copy `.env.example` to `.env` to customize your values.
+
+| Variable Name | Required | Description | Example / Default |
+| :--- | :---: | :--- | :--- |
+| `PORT` | No | Port on which the NestJS server runs | `3000` |
+| `MONGODB_URI` | Yes | MongoDB Connection String URI | `mongodb://localhost:27017` |
+| `DB_NAME` | Yes | Target database name | `support_ticket_system` |
+| `JWT_SECRET` | Yes | Secret key used for signing JWT login tokens | *Generate a random secure string* |
+| `GEMINI_API_KEY` | Yes | API key from Google AI Studio | `AIzaSyC...` |
+| `EMAIL_USER` | Yes | SMTP Username (for email updates) | `noreply@yourdomain.com` |
+| `EMAIL_PASS` | Yes | SMTP Password or App Password | `xxxx xxxx xxxx xxxx` |
+| `RESEND_API_KEY`| No | Resend API Key if using Resend for mailers | `re_xxx` |
+| `DEPLOYED_URL` | No | Deployed server base URL (for Swagger document) | `https://api.tickets.yoursite.com` |
+
+---
+
+## 📦 Getting Started
+
+### Prerequisites
+
+Ensure you have the following installed locally:
+*   [Node.js](https://nodejs.org/) (v20+ recommended)
+*   [NPM](https://www.npmjs.com/)
+*   [MongoDB](https://www.mongodb.com/) (either running locally or a MongoDB Atlas URI)
+*   [Docker](https://www.docker.com/) (Optional, for containerized execution)
+
+---
+
+### 💻 Local Development Setup
+
+1.  **Clone the Repository** and navigate to the project directory:
+    ```bash
+    cd ai-support-ticket-system-server
+    ```
+
+2.  **Configure Environment Variables**:
+    ```bash
+    cp .env.example .env
+    ```
+    Open `.env` and fill in your MongoDB connection details, JWT secret, Gmail/SMTP credentials, and Gemini API Key.
+
+3.  **Install Dependencies**:
+    ```bash
+    npm install
+    ```
+
+4.  **Run in Development Mode (Watch Mode)**:
+    ```bash
+    npm run start:dev
+    ```
+    The server will start, and Swagger docs will be hosted at: `http://localhost:3000/api`
+
+5.  **Compile & Run in Production Mode**:
+    ```bash
+    # Build the TypeScript files
+    npm run build
+
+    # Run the compiled JavaScript
+    npm run start:prod
+    ```
+
+---
+
+### 🐳 Running with Docker
+
+Docker allows you to run the application in an isolated container without having to install Node.js locally.
+
+#### 1. Build the Docker Image
+Navigate to the server directory and run the following command to build the image (tagged `support-ticket-server`):
 ```bash
-$ npm install
+docker build -t support-ticket-server .
 ```
 
-## Compile and run the project
-
+#### 2. Run the Container
+Run the container and load environment variables from your local `.env` file, forwarding container port `3000` to local port `3000`:
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+docker run -d \
+  --name ticket-server-app \
+  -p 3000:3000 \
+  --env-file .env \
+  support-ticket-server
 ```
 
-## Run tests
+#### 3. Run with docker-compose (Recommended with MongoDB)
+If you want to spin up the NestJS server along with a local MongoDB instance in one command, create a `docker-compose.yml` file:
 
+```yaml
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:6.0
+    container_name: ticket-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  server:
+    build: .
+    container_name: ticket-server
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - MONGODB_URI=mongodb://mongodb:27017
+      - DB_NAME=support_ticket_system
+      - JWT_SECRET=change-me-to-a-secure-secret-key-123!
+      - GEMINI_API_KEY=YOUR_GEMINI_KEY
+      - EMAIL_USER=your_email@gmail.com
+      - EMAIL_PASS=your_email_app_password
+    depends_on:
+      - mongodb
+
+volumes:
+  mongo-data:
+```
+To spin it up, simply run:
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+docker compose up -d
 ```
 
-## Deployment
+---
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+## 📖 API & WebSocket Endpoints
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### Swagger Documentation
+Once the app is running, navigate to:
+👉 **[http://localhost:3000/api](http://localhost:3000/api)**
+
+Here you can view, test, and interact with all routes including:
+*   `POST /auth/register` and `POST /auth/login`
+*   `GET/POST/PUT/DELETE /tickets`
+*   `POST /tickets/:id/assign` and `PUT /tickets/:id/status`
+*   `GET/POST /tickets/:id/comments`
+
+### Real-Time WebSocket Events
+Client connections should target the default gateway `/` on the server port. 
+
+**Broadcasted Events**:
+*   `ticketUpdated`: Emitted when status, priority, assignee, or ticket fields are changed.
+*   `commentAdded`: Emitted when a new comment is added.
+*   `activityTracked`: Emitted when any new activity is logged for a ticket.
+
+---
+
+## 🧪 Testing
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+# Run unit tests
+npm run test
+
+# Run end-to-end (e2e) tests
+npm run test:e2e
+
+# Run test coverage
+npm run test:cov
 ```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
