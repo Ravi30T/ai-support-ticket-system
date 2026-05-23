@@ -11,7 +11,7 @@ import {
   Res,
   Logger,
 } from '@nestjs/common';
-import type { FastifyReply } from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import {
   ApiTags,
   ApiOperation,
@@ -28,15 +28,16 @@ import {
   AssignTicketDTO,
   AddCommentDTO,
   GetTicketsQueryDTO,
+  GetActivitiesQueryDTO,
 } from './dto/ticket.dto';
 
-interface RequestWithUser {
+type RequestWithUser = FastifyRequest & {
   user: {
     sub: string;
     email: string;
     role: string;
   };
-}
+};
 
 interface HttpExceptionLike {
   status?: number;
@@ -50,7 +51,7 @@ interface HttpExceptionLike {
 export class TicketsController {
   private readonly logger = new Logger(TicketsController.name);
 
-  constructor(private readonly ticketsService: TicketsService) {}
+  constructor(private readonly ticketsService: TicketsService) { }
 
   @Post('/')
   @UseGuards(AuthGuard, RolesGuard)
@@ -132,11 +133,13 @@ export class TicketsController {
   @ApiResponse({ status: 404, description: 'Ticket or agent not found.' })
   async assignTicket(
     @Param('id') id: string,
+    @Req() req: RequestWithUser,
     @Res() res: FastifyReply,
     @Body() dto: AssignTicketDTO,
   ) {
     try {
-      const result = await this.ticketsService.assignTicket(id, dto);
+      const userId = req.user.sub;
+      const result = await this.ticketsService.assignTicket(id, dto, userId);
       return res.code(result.status_code).send(result);
     } catch (error: unknown) {
       const err = error as HttpExceptionLike;
@@ -213,6 +216,41 @@ export class TicketsController {
     } catch (error: unknown) {
       const err = error as HttpExceptionLike;
       this.logger.error('Error in listTickets', err.stack);
+      const status = err.status ?? err.statusCode ?? 500;
+      const message = err.message || 'Internal server error';
+      return res
+        .status(status)
+        .send({ success: false, status_code: status, message });
+    }
+  }
+
+  @Get('/:id/activities')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Get ticket activities history (Owner or Admin)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Ticket activities retrieved successfully.',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'Ticket not found.' })
+  async getTicketActivities(@Param('id') id: string, @Req() req: RequestWithUser, @Res() res: FastifyReply, @Query() query: GetActivitiesQueryDTO,) {
+    try {
+      const userId = req.user.sub;
+      const userRole = req.user.role;
+      const result = await this.ticketsService.getTicketActivities(
+        id,
+        query,
+        userId,
+        userRole,
+      );
+      return res.status(result.status_code).send(result);
+    } catch (error: unknown) {
+      const err = error as HttpExceptionLike;
+      this.logger.error('Error in getTicketActivities', err.stack);
       const status = err.status ?? err.statusCode ?? 500;
       const message = err.message || 'Internal server error';
       return res

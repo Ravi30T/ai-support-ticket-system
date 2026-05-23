@@ -39,7 +39,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     @InjectModel(UserToken.name)
     private readonly userTokenModel: Model<UserTokenDocument>,
-  ) { }
+  ) {}
 
   /**
    * Self-registration for standard users.

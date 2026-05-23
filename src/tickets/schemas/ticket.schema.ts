@@ -9,6 +9,9 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 })
 export class Tickets extends Document {
   @Prop({ required: true, type: String, trim: true })
+  ticket_number: string;
+
+  @Prop({ required: true, type: String, trim: true })
   title: string;
 
   @Prop({ required: true, type: String, trim: true })
@@ -23,7 +26,7 @@ export class Tickets extends Document {
   status: string;
 
   @Prop({ type: Types.ObjectId, ref: 'Categories', default: null })
-  category: Types.ObjectId;
+  category: Types.ObjectId | null;
 
   @Prop({ required: true, type: Types.ObjectId, ref: 'Users' })
   created_by: Types.ObjectId;
@@ -33,6 +36,7 @@ export class Tickets extends Document {
 }
 
 export const TicketsSchema = SchemaFactory.createForClass(Tickets);
+TicketsSchema.index({ ticket_number: 1 }, { unique: true });
 TicketsSchema.index({ status: 1 });
 TicketsSchema.index({ title: 'text', description: 'text' });
 

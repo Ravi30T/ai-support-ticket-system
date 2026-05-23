@@ -27,13 +27,13 @@ export class CreateTicketDTO {
   @IsNotEmpty()
   description: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'The ID of the category this ticket belongs to',
     example: '65f8c67c51480e6080373ab1',
   })
+  @IsOptional()
   @IsMongoId()
-  @IsNotEmpty()
-  category: string;
+  category?: string;
 }
 
 export class UpdateTicketStatusDTO {
@@ -111,4 +111,26 @@ export class GetTicketsQueryDTO {
   @IsOptional()
   @IsString()
   search?: string;
+}
+
+export class GetActivitiesQueryDTO {
+  @ApiPropertyOptional({
+    description: 'Page number for pagination',
+    default: 1,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @ApiPropertyOptional({
+    description: 'Number of items per page',
+    default: 10,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  limit?: number = 10;
 }
