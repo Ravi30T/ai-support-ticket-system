@@ -8,6 +8,7 @@ import { UsersModule } from './users/users.module';
 import { RolesModule } from './roles/roles.module';
 import { AuthModule } from './auth/auth.module';
 import { TicketsModule } from './tickets/tickets.module';
+import { SocketsModule } from './sockets/sockets.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { TicketsModule } from './tickets/tickets.module';
     RolesModule,
     AuthModule,
     TicketsModule,
+    SocketsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

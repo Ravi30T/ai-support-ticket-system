@@ -12,9 +12,11 @@ import {
   AddCommentDTO,
   GetTicketsQueryDTO,
   GetActivitiesQueryDTO,
+  GetCommentsQueryDTO,
 } from '../dto/ticket.dto';
 import { UsersService } from '../../users/users.service';
 import { CategoryService } from './category.service';
+import { SocketsGateway } from '../../sockets/sockets.gateway';
 
 interface UserRolePopulated {
   name?: string;
@@ -31,6 +33,7 @@ export class TicketsService {
     @InjectModel(Activities.name) private readonly activitiesModel: Model<ActivitiesDocument>,
     private readonly categoryService: CategoryService,
     @Inject(forwardRef(() => UsersService)) private readonly usersService: UsersService,
+    private readonly socketsGateway: SocketsGateway,
   ) { }
 
   private async _logActivity(ticketId: string, performedBy: string, action: string, details: string | null = null): Promise<void> {
@@ -44,6 +47,25 @@ export class TicketsService {
     } catch (error) {
       this.logger.error('Error logging activity', error);
     }
+  }
+
+  private _flattenTicketId(doc: any): any {
+    const json = doc.toJSON ? doc.toJSON() : doc;
+    if (json.ticket_id && typeof json.ticket_id === 'object') {
+      json.ticket_number = json.ticket_id.ticket_number;
+      json.ticket_id = json.ticket_id._id || json.ticket_id.id;
+    }
+    return json;
+  }
+
+  private _formatTicket(doc: any): any {
+    const json = doc.toJSON ? doc.toJSON() : doc;
+    if (json.category && typeof json.category === 'object') {
+      json.category_id = json.category._id || json.category.id;
+      json.category_name = json.category.name;
+      delete json.category;
+    }
+    return json;
   }
 
   async createTicket(
@@ -91,11 +113,15 @@ export class TicketsService {
 
       await this._logActivity(ticket._id.toString(), userId, 'created');
 
+      if (dto.category) {
+        await ticket.populate('category', 'name description');
+      }
+
       return {
         success: true,
         status_code: 201,
         message: 'Ticket created successfully',
-        data: ticket,
+        data: this._formatTicket(ticket),
       };
     } catch (error) {
       this.logger.error('Error in create ticket', error);
@@ -127,6 +153,14 @@ export class TicketsService {
       };
     }
 
+    if (!ticket.assigned_to) {
+      return {
+        success: false,
+        status_code: 400,
+        message: 'Cannot update ticket status without an assigned user',
+      };
+    }
+
     if (userRole.toLowerCase() !== 'admin') {
       if (ticket.created_by.toString() !== userId) {
         return {
@@ -147,6 +181,12 @@ export class TicketsService {
       'status_changed',
       `from ${oldStatus} to ${dto.status}`,
     );
+
+    this.socketsGateway.emitTicketUpdate(ticketId, {
+      ticket_id: ticketId,
+      status: dto.status,
+      updated_by: userId,
+    });
 
     return {
       success: true,
@@ -200,6 +240,13 @@ export class TicketsService {
       `assigned to ${agent.name}`,
     );
 
+    this.socketsGateway.emitTicketAssigned(ticketId, {
+      ticket_id: ticketId,
+      assigned_to: agent._id || agent.id,
+      agent_name: agent.name,
+      assigned_by: userId,
+    });
+
     return {
       success: true,
       status_code: 200,
@@ -247,13 +294,22 @@ export class TicketsService {
       text: dto.text.trim(),
     });
 
+    await comment.populate('ticket_id', 'ticket_number');
+
     await this._logActivity(ticket._id.toString(), userId, 'comment_added');
+
+    const formattedComment = this._flattenTicketId(comment);
+
+    this.socketsGateway.emitNewComment(ticketId, {
+      ticket_id: ticketId,
+      comment: formattedComment,
+    });
 
     return {
       success: true,
       status_code: 201,
       message: 'Comment added successfully',
-      data: comment,
+      data: formattedComment,
     };
   }
 
@@ -267,10 +323,9 @@ export class TicketsService {
     message: string;
     data: {
       tickets: any[];
-      total: number;
-      page: number;
-      limit: number;
-      pages: number;
+      totalRecords: number;
+      currentPage: number;
+      totalPages: number;
     };
   }> {
     const filter: {
@@ -322,12 +377,39 @@ export class TicketsService {
       status_code: 200,
       message: 'Tickets retrieved successfully',
       data: {
-        tickets,
-        total,
-        page,
-        limit,
-        pages,
+        tickets: tickets.map(t => this._formatTicket(t)),
+        totalRecords: total,
+        currentPage: page,
+        totalPages: pages,
       },
+    };
+  }
+
+  async getTicketById(ticketId: string, userId: string, userRole: string): Promise<{ success: boolean; status_code: number; message: string; data?: any }> {
+    const ticket = await this.ticketsModel.findById(ticketId).exec();
+    if (!ticket) {
+      return { success: false, status_code: 404, message: 'Ticket not found' };
+    }
+
+    if (userRole.toLowerCase() !== 'admin') {
+      if (ticket.created_by.toString() !== userId) {
+        return {
+          success: false,
+          status_code: 403,
+          message: 'You are not authorized to view this ticket',
+        };
+      }
+    }
+
+    await ticket.populate('category', 'name description');
+    await ticket.populate('created_by', 'name email');
+    await ticket.populate('assigned_to', 'name email');
+
+    return {
+      success: true,
+      status_code: 200,
+      message: 'Ticket retrieved successfully',
+      data: this._formatTicket(ticket),
     };
   }
 
@@ -356,6 +438,7 @@ export class TicketsService {
     const activities = await this.activitiesModel
       .find(filter)
       .populate('performed_by', 'name email role.name')
+      .populate('ticket_id', 'ticket_number')
       .sort({ created_at: -1 })
       .skip(skip)
       .limit(limit)
@@ -363,16 +446,65 @@ export class TicketsService {
 
     const pages = Math.ceil(total / limit);
 
+    const formattedActivities = activities.map(act => this._flattenTicketId(act));
+
     return {
       success: true,
       status_code: 200,
       message: 'Ticket activities retrieved successfully',
       data: {
-        activities,
-        total,
-        page,
-        limit,
-        pages,
+        activities: formattedActivities,
+        totalRecords: total,
+        currentPage: page,
+        totalPages: pages,
+      },
+    };
+  }
+
+  async getTicketComments(ticketId: string, query: GetCommentsQueryDTO, userId: string, userRole: string): Promise<{ success: boolean; status_code: number; message: string; data?: any }> {
+    const ticket = await this.ticketsModel.findById(ticketId).exec();
+    if (!ticket) {
+      return { success: false, status_code: 404, message: 'Ticket not found' };
+    }
+
+    if (userRole.toLowerCase() !== 'admin') {
+      if (ticket.created_by.toString() !== userId) {
+        return {
+          success: false,
+          status_code: 403,
+          message: 'You are not authorized to view comments for this ticket',
+        };
+      }
+    }
+
+    const limit = query.limit || 10;
+    const page = query.page || 1;
+    const skip = (page - 1) * limit;
+    const filter = { ticket_id: new Types.ObjectId(ticketId) };
+
+    const total = await this.commentsModel.countDocuments(filter).exec();
+    const comments = await this.commentsModel
+      .find(filter)
+      .populate('sender', 'name email role.name')
+      .populate('ticket_id', 'ticket_number')
+      .sort({ created_at: -1 })
+      .skip(skip)
+      .limit(limit)
+      .exec();
+
+    const pages = Math.ceil(total / limit);
+
+    const formattedComments = comments.map(comment => this._flattenTicketId(comment));
+
+    return {
+      success: true,
+      status_code: 200,
+      message: 'Ticket comments retrieved successfully',
+      data: {
+        comments: formattedComments,
+        totalRecords: total,
+        currentPage: page,
+        totalPages: pages,
       },
     };
   }

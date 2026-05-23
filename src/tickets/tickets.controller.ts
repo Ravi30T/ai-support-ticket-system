@@ -17,6 +17,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiParam,
 } from '@nestjs/swagger';
 import { AuthGuard } from '../shared/guards/auth.guard';
 import { RolesGuard } from '../shared/guards/roles.guard';
@@ -29,6 +30,7 @@ import {
   AddCommentDTO,
   GetTicketsQueryDTO,
   GetActivitiesQueryDTO,
+  GetCommentsQueryDTO,
 } from './dto/ticket.dto';
 
 type RequestWithUser = FastifyRequest & {
@@ -86,6 +88,7 @@ export class TicketsController {
   @UseGuards(AuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update ticket status (Owner or Admin)' })
+  @ApiParam({ name: 'id', type: 'string', description: 'Ticket ID' })
   @ApiResponse({ status: 200, description: 'Status updated successfully.' })
   @ApiResponse({ status: 400, description: 'Invalid payload.' })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
@@ -123,6 +126,7 @@ export class TicketsController {
   @Roles('admin')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Assign a ticket to an admin agent (Admin only)' })
+  @ApiParam({ name: 'id', type: 'string', description: 'Ticket ID' })
   @ApiResponse({ status: 200, description: 'Ticket assigned successfully.' })
   @ApiResponse({
     status: 400,
@@ -158,6 +162,7 @@ export class TicketsController {
   @ApiOperation({
     summary: 'Add a comment or reply to a ticket (Owner or Admin)',
   })
+  @ApiParam({ name: 'id', type: 'string', description: 'Ticket ID' })
   @ApiResponse({ status: 201, description: 'Comment added successfully.' })
   @ApiResponse({ status: 400, description: 'Invalid payload.' })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
@@ -224,12 +229,47 @@ export class TicketsController {
     }
   }
 
+  @Get('/:id')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get a specific ticket by ID (Owner or Admin)' })
+  @ApiParam({ name: 'id', type: 'string', description: 'Ticket ID' })
+  @ApiResponse({ status: 200, description: 'Ticket retrieved successfully.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'Ticket not found.' })
+  async getTicketById(
+    @Param('id') id: string,
+    @Req() req: RequestWithUser,
+    @Res() res: FastifyReply,
+  ) {
+    try {
+      const userId = req.user.sub;
+      const userRole = req.user.role;
+      const result = await this.ticketsService.getTicketById(
+        id,
+        userId,
+        userRole,
+      );
+      return res.status(result.status_code).send(result);
+    } catch (error: unknown) {
+      const err = error as HttpExceptionLike;
+      this.logger.error('Error in getTicketById', err.stack);
+      const status = err.status ?? err.statusCode ?? 500;
+      const message = err.message || 'Internal server error';
+      return res
+        .status(status)
+        .send({ success: false, status_code: status, message });
+    }
+  }
+
   @Get('/:id/activities')
   @UseGuards(AuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({
     summary: 'Get ticket activities history (Owner or Admin)',
   })
+  @ApiParam({ name: 'id', type: 'string', description: 'Ticket ID' })
   @ApiResponse({
     status: 200,
     description: 'Ticket activities retrieved successfully.',
@@ -251,6 +291,42 @@ export class TicketsController {
     } catch (error: unknown) {
       const err = error as HttpExceptionLike;
       this.logger.error('Error in getTicketActivities', err.stack);
+      const status = err.status ?? err.statusCode ?? 500;
+      const message = err.message || 'Internal server error';
+      return res
+        .status(status)
+        .send({ success: false, status_code: status, message });
+    }
+  }
+
+  @Get('/:id/comments')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Get ticket comments with pagination (Owner or Admin)',
+  })
+  @ApiParam({ name: 'id', type: 'string', description: 'Ticket ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Ticket comments retrieved successfully.',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'Ticket not found.' })
+  async getTicketComments(@Param('id') id: string, @Req() req: RequestWithUser, @Res() res: FastifyReply, @Query() query: GetCommentsQueryDTO) {
+    try {
+      const userId = req.user.sub;
+      const userRole = req.user.role;
+      const result = await this.ticketsService.getTicketComments(
+        id,
+        query,
+        userId,
+        userRole,
+      );
+      return res.status(result.status_code).send(result);
+    } catch (error: unknown) {
+      const err = error as HttpExceptionLike;
+      this.logger.error('Error in getTicketComments', err.stack);
       const status = err.status ?? err.statusCode ?? 500;
       const message = err.message || 'Internal server error';
       return res
