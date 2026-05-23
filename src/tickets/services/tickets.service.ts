@@ -144,56 +144,61 @@ export class TicketsService {
     message: string;
     data?: any;
   }> {
-    const ticket = await this.ticketsModel.findById(ticketId).exec();
-    if (!ticket) {
-      return {
-        success: false,
-        status_code: 404,
-        message: 'Ticket not found',
-      };
-    }
-
-    if (!ticket.assigned_to) {
-      return {
-        success: false,
-        status_code: 400,
-        message: 'Cannot update ticket status without an assigned user',
-      };
-    }
-
-    if (userRole.toLowerCase() !== 'admin') {
-      if (ticket.created_by.toString() !== userId) {
+    try {
+      const ticket = await this.ticketsModel.findById(ticketId).exec();
+      if (!ticket) {
         return {
           success: false,
-          status_code: 403,
-          message: 'You are not authorized to update this ticket status',
+          status_code: 404,
+          message: 'Ticket not found',
         };
       }
+
+      if (!ticket.assigned_to) {
+        return {
+          success: false,
+          status_code: 400,
+          message: 'Cannot update ticket status without an assigned user',
+        };
+      }
+
+      if (userRole.toLowerCase() !== 'admin') {
+        if (ticket.created_by.toString() !== userId) {
+          return {
+            success: false,
+            status_code: 403,
+            message: 'You are not authorized to update this ticket status',
+          };
+        }
+      }
+
+      const oldStatus = ticket.status;
+      ticket.status = dto.status;
+      const updatedTicket = await ticket.save();
+
+      await this._logActivity(
+        ticket._id.toString(),
+        userId,
+        'status_changed',
+        `from ${oldStatus} to ${dto.status}`,
+      );
+
+      this.socketsGateway.emitTicketUpdate(ticketId, {
+        ticket_id: ticketId,
+        status: dto.status,
+        updated_by: userId,
+      });
+
+      return {
+        success: true,
+        status_code: 200,
+        message: `Ticket status updated to '${dto.status}' successfully`,
+        data: updatedTicket,
+      };
+    } catch (error) {
+      this.logger.error('Error updating ticket status', error);
+      return { success: false, status_code: 500, message: 'Failed to update ticket status' };
     }
-
-    const oldStatus = ticket.status;
-    ticket.status = dto.status;
-    const updatedTicket = await ticket.save();
-
-    await this._logActivity(
-      ticket._id.toString(),
-      userId,
-      'status_changed',
-      `from ${oldStatus} to ${dto.status}`,
-    );
-
-    this.socketsGateway.emitTicketUpdate(ticketId, {
-      ticket_id: ticketId,
-      status: dto.status,
-      updated_by: userId,
-    });
-
-    return {
-      success: true,
-      status_code: 200,
-      message: `Ticket status updated to '${dto.status}' successfully`,
-      data: updatedTicket,
-    };
   }
 
   async assignTicket(ticketId: string, dto: AssignTicketDTO, userId: string): Promise<{
@@ -202,57 +207,62 @@ export class TicketsService {
     message: string;
     data?: any;
   }> {
-    const ticket = await this.ticketsModel.findById(ticketId).exec();
-    if (!ticket) {
+    try {
+      const ticket = await this.ticketsModel.findById(ticketId).exec();
+      if (!ticket) {
+        return {
+          success: false,
+          status_code: 404,
+          message: 'Ticket not found',
+        };
+      }
+
+      const agent = await this.usersService.findById(dto.agentId);
+      if (!agent) {
+        return {
+          success: false,
+          status_code: 404,
+          message: 'Agent not found',
+        };
+      }
+
+      const roleObj = agent.role as unknown as UserRolePopulated;
+      const roleName = roleObj?.name;
+      if (!roleName || roleName.toLowerCase() !== 'admin') {
+        return {
+          success: false,
+          status_code: 400,
+          message: 'Tickets can only be assigned to admin agents',
+        };
+      }
+
+      ticket.assigned_to = new Types.ObjectId(dto.agentId);
+      const updatedTicket = await ticket.save();
+
+      await this._logActivity(
+        ticket._id.toString(),
+        userId,
+        'assigned',
+        `assigned to ${agent.name}`,
+      );
+
+      this.socketsGateway.emitTicketAssigned(ticketId, {
+        ticket_id: ticketId,
+        assigned_to: agent._id || agent.id,
+        agent_name: agent.name,
+        assigned_by: userId,
+      });
+
       return {
-        success: false,
-        status_code: 404,
-        message: 'Ticket not found',
+        success: true,
+        status_code: 200,
+        message: `Ticket assigned to agent ${agent.name} successfully`,
+        data: updatedTicket,
       };
+    } catch (error) {
+      this.logger.error('Error assigning ticket', error);
+      return { success: false, status_code: 500, message: 'Failed to assign ticket' };
     }
-
-    const agent = await this.usersService.findById(dto.agentId);
-    if (!agent) {
-      return {
-        success: false,
-        status_code: 404,
-        message: 'Agent not found',
-      };
-    }
-
-    const roleObj = agent.role as unknown as UserRolePopulated;
-    const roleName = roleObj?.name;
-    if (!roleName || roleName.toLowerCase() !== 'admin') {
-      return {
-        success: false,
-        status_code: 400,
-        message: 'Tickets can only be assigned to admin agents',
-      };
-    }
-
-    ticket.assigned_to = new Types.ObjectId(dto.agentId);
-    const updatedTicket = await ticket.save();
-
-    await this._logActivity(
-      ticket._id.toString(),
-      userId,
-      'assigned',
-      `assigned to ${agent.name}`,
-    );
-
-    this.socketsGateway.emitTicketAssigned(ticketId, {
-      ticket_id: ticketId,
-      assigned_to: agent._id || agent.id,
-      agent_name: agent.name,
-      assigned_by: userId,
-    });
-
-    return {
-      success: true,
-      status_code: 200,
-      message: `Ticket assigned to agent ${agent.name} successfully`,
-      data: updatedTicket,
-    };
   }
 
   async addComment(
@@ -266,51 +276,56 @@ export class TicketsService {
     message: string;
     data?: any;
   }> {
-    const ticket = await this.ticketsModel.findById(ticketId).exec();
-    if (!ticket) {
-      return {
-        success: false,
-        status_code: 404,
-        message: 'Ticket not found',
-      };
-    }
-
-    const normalizedRole = userRole.toLowerCase();
-
-    if (normalizedRole !== 'admin') {
-      if (ticket.created_by.toString() !== userId) {
+    try {
+      const ticket = await this.ticketsModel.findById(ticketId).exec();
+      if (!ticket) {
         return {
           success: false,
-          status_code: 403,
-          message: 'You are not authorized to comment on this ticket',
+          status_code: 404,
+          message: 'Ticket not found',
         };
       }
+
+      const normalizedRole = userRole.toLowerCase();
+
+      if (normalizedRole !== 'admin') {
+        if (ticket.created_by.toString() !== userId) {
+          return {
+            success: false,
+            status_code: 403,
+            message: 'You are not authorized to comment on this ticket',
+          };
+        }
+      }
+
+      const comment = await this.commentsModel.create({
+        ticket_id: new Types.ObjectId(ticketId),
+        sender: new Types.ObjectId(userId),
+        sender_role: normalizedRole === 'admin' ? 'admin' : 'user',
+        text: dto.text.trim(),
+      });
+
+      await comment.populate('ticket_id', 'ticket_number');
+
+      await this._logActivity(ticket._id.toString(), userId, 'comment_added');
+
+      const formattedComment = this._flattenTicketId(comment);
+
+      this.socketsGateway.emitNewComment(ticketId, {
+        ticket_id: ticketId,
+        comment: formattedComment,
+      });
+
+      return {
+        success: true,
+        status_code: 201,
+        message: 'Comment added successfully',
+        data: formattedComment,
+      };
+    } catch (error) {
+      this.logger.error('Error adding comment', error);
+      return { success: false, status_code: 500, message: 'Failed to add comment' };
     }
-
-    const comment = await this.commentsModel.create({
-      ticket_id: new Types.ObjectId(ticketId),
-      sender: new Types.ObjectId(userId),
-      sender_role: normalizedRole === 'admin' ? 'admin' : 'user',
-      text: dto.text.trim(),
-    });
-
-    await comment.populate('ticket_id', 'ticket_number');
-
-    await this._logActivity(ticket._id.toString(), userId, 'comment_added');
-
-    const formattedComment = this._flattenTicketId(comment);
-
-    this.socketsGateway.emitNewComment(ticketId, {
-      ticket_id: ticketId,
-      comment: formattedComment,
-    });
-
-    return {
-      success: true,
-      status_code: 201,
-      message: 'Comment added successfully',
-      data: formattedComment,
-    };
   }
 
   async listTickets(
@@ -321,191 +336,340 @@ export class TicketsService {
     success: boolean;
     status_code: number;
     message: string;
-    data: {
+    data?: {
       tickets: any[];
       totalRecords: number;
       currentPage: number;
       totalPages: number;
     };
   }> {
-    const filter: {
-      created_by?: Types.ObjectId;
-      status?: string;
-      category?: Types.ObjectId;
-      $or?: Array<{
-        title?: { $regex: string; $options: string };
-        description?: { $regex: string; $options: string };
-      }>;
-    } = {};
+    try {
+      const filter: {
+        created_by?: Types.ObjectId;
+        status?: string;
+        category?: Types.ObjectId;
+        $or?: Array<{
+          title?: { $regex: string; $options: string };
+          description?: { $regex: string; $options: string };
+        }>;
+      } = {};
 
-    if (userRole.toLowerCase() !== 'admin') {
-      filter.created_by = new Types.ObjectId(userId);
+      if (userRole.toLowerCase() !== 'admin') {
+        filter.created_by = new Types.ObjectId(userId);
+      }
+
+      if (query.status && query.status !== 'all') {
+        filter.status = query.status;
+      }
+      if (query.category && query.category !== 'all') {
+        filter.category = new Types.ObjectId(query.category);
+      }
+      if (query.search) {
+        filter.$or = [
+          { title: { $regex: query.search, $options: 'i' } },
+          { description: { $regex: query.search, $options: 'i' } },
+        ];
+      }
+
+      const limit = query.limit || 10;
+      const page = query.page || 1;
+      const skip = (page - 1) * limit;
+
+      const total = await this.ticketsModel.countDocuments(filter).exec();
+      const tickets = await this.ticketsModel
+        .find(filter)
+        .populate('category', 'name description')
+        .populate('created_by', 'name email')
+        .populate('assigned_to', 'name email')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec();
+
+      const pages = Math.ceil(total / limit);
+
+      return {
+        success: true,
+        status_code: 200,
+        message: 'Tickets retrieved successfully',
+        data: {
+          tickets: tickets.map(t => this._formatTicket(t)),
+          totalRecords: total,
+          currentPage: page,
+          totalPages: pages,
+        },
+      };
+    } catch (error) {
+      this.logger.error('Error listing tickets', error);
+      return { success: false, status_code: 500, message: 'Failed to list tickets' };
     }
-
-    if (query.status && query.status !== 'all') {
-      filter.status = query.status;
-    }
-    if (query.category && query.category !== 'all') {
-      filter.category = new Types.ObjectId(query.category);
-    }
-    if (query.search) {
-      filter.$or = [
-        { title: { $regex: query.search, $options: 'i' } },
-        { description: { $regex: query.search, $options: 'i' } },
-      ];
-    }
-
-    const limit = query.limit || 10;
-    const page = query.page || 1;
-    const skip = (page - 1) * limit;
-
-    const total = await this.ticketsModel.countDocuments(filter).exec();
-    const tickets = await this.ticketsModel
-      .find(filter)
-      .populate('category', 'name description')
-      .populate('created_by', 'name email')
-      .populate('assigned_to', 'name email')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .exec();
-
-    const pages = Math.ceil(total / limit);
-
-    return {
-      success: true,
-      status_code: 200,
-      message: 'Tickets retrieved successfully',
-      data: {
-        tickets: tickets.map(t => this._formatTicket(t)),
-        totalRecords: total,
-        currentPage: page,
-        totalPages: pages,
-      },
-    };
   }
 
   async getTicketById(ticketId: string, userId: string, userRole: string): Promise<{ success: boolean; status_code: number; message: string; data?: any }> {
-    const ticket = await this.ticketsModel.findById(ticketId).exec();
-    if (!ticket) {
-      return { success: false, status_code: 404, message: 'Ticket not found' };
-    }
-
-    if (userRole.toLowerCase() !== 'admin') {
-      if (ticket.created_by.toString() !== userId) {
-        return {
-          success: false,
-          status_code: 403,
-          message: 'You are not authorized to view this ticket',
-        };
+    try {
+      const ticket = await this.ticketsModel.findById(ticketId).exec();
+      if (!ticket) {
+        return { success: false, status_code: 404, message: 'Ticket not found' };
       }
+
+      if (userRole.toLowerCase() !== 'admin') {
+        if (ticket.created_by.toString() !== userId) {
+          return {
+            success: false,
+            status_code: 403,
+            message: 'You are not authorized to view this ticket',
+          };
+        }
+      }
+
+      await ticket.populate('category', 'name description');
+      await ticket.populate('created_by', 'name email');
+      await ticket.populate('assigned_to', 'name email');
+
+      return {
+        success: true,
+        status_code: 200,
+        message: 'Ticket retrieved successfully',
+        data: this._formatTicket(ticket),
+      };
+    } catch (error) {
+      this.logger.error('Error getting ticket by id', error);
+      return { success: false, status_code: 500, message: 'Failed to retrieve ticket' };
     }
-
-    await ticket.populate('category', 'name description');
-    await ticket.populate('created_by', 'name email');
-    await ticket.populate('assigned_to', 'name email');
-
-    return {
-      success: true,
-      status_code: 200,
-      message: 'Ticket retrieved successfully',
-      data: this._formatTicket(ticket),
-    };
   }
 
   async getTicketActivities(ticketId: string, query: GetActivitiesQueryDTO, userId: string, userRole: string): Promise<{ success: boolean; status_code: number; message: string; data?: any }> {
-    const ticket = await this.ticketsModel.findById(ticketId).exec();
-    if (!ticket) {
-      return { success: false, status_code: 404, message: 'Ticket not found' };
-    }
-
-    if (userRole.toLowerCase() !== 'admin') {
-      if (ticket.created_by.toString() !== userId) {
-        return {
-          success: false,
-          status_code: 403,
-          message: 'You are not authorized to view activities for this ticket',
-        };
+    try {
+      const ticket = await this.ticketsModel.findById(ticketId).exec();
+      if (!ticket) {
+        return { success: false, status_code: 404, message: 'Ticket not found' };
       }
+
+      if (userRole.toLowerCase() !== 'admin') {
+        if (ticket.created_by.toString() !== userId) {
+          return {
+            success: false,
+            status_code: 403,
+            message: 'You are not authorized to view activities for this ticket',
+          };
+        }
+      }
+
+      const limit = query.limit || 10;
+      const page = query.page || 1;
+      const skip = (page - 1) * limit;
+      const filter = { ticket_id: new Types.ObjectId(ticketId) };
+
+      const total = await this.activitiesModel.countDocuments(filter).exec();
+      const activities = await this.activitiesModel
+        .find(filter)
+        .populate('performed_by', 'name email role.name')
+        .populate('ticket_id', 'ticket_number')
+        .sort({ created_at: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec();
+
+      const pages = Math.ceil(total / limit);
+
+      const formattedActivities = activities.map(act => this._flattenTicketId(act));
+
+      return {
+        success: true,
+        status_code: 200,
+        message: 'Ticket activities retrieved successfully',
+        data: {
+          activities: formattedActivities,
+          totalRecords: total,
+          currentPage: page,
+          totalPages: pages,
+        },
+      };
+    } catch (error) {
+      this.logger.error('Error getting ticket activities', error);
+      return { success: false, status_code: 500, message: 'Failed to retrieve activities' };
     }
-
-    const limit = query.limit || 10;
-    const page = query.page || 1;
-    const skip = (page - 1) * limit;
-    const filter = { ticket_id: new Types.ObjectId(ticketId) };
-
-    const total = await this.activitiesModel.countDocuments(filter).exec();
-    const activities = await this.activitiesModel
-      .find(filter)
-      .populate('performed_by', 'name email role.name')
-      .populate('ticket_id', 'ticket_number')
-      .sort({ created_at: -1 })
-      .skip(skip)
-      .limit(limit)
-      .exec();
-
-    const pages = Math.ceil(total / limit);
-
-    const formattedActivities = activities.map(act => this._flattenTicketId(act));
-
-    return {
-      success: true,
-      status_code: 200,
-      message: 'Ticket activities retrieved successfully',
-      data: {
-        activities: formattedActivities,
-        totalRecords: total,
-        currentPage: page,
-        totalPages: pages,
-      },
-    };
   }
 
   async getTicketComments(ticketId: string, query: GetCommentsQueryDTO, userId: string, userRole: string): Promise<{ success: boolean; status_code: number; message: string; data?: any }> {
-    const ticket = await this.ticketsModel.findById(ticketId).exec();
-    if (!ticket) {
-      return { success: false, status_code: 404, message: 'Ticket not found' };
-    }
-
-    if (userRole.toLowerCase() !== 'admin') {
-      if (ticket.created_by.toString() !== userId) {
-        return {
-          success: false,
-          status_code: 403,
-          message: 'You are not authorized to view comments for this ticket',
-        };
+    try {
+      const ticket = await this.ticketsModel.findById(ticketId).exec();
+      if (!ticket) {
+        return { success: false, status_code: 404, message: 'Ticket not found' };
       }
+
+      if (userRole.toLowerCase() !== 'admin') {
+        if (ticket.created_by.toString() !== userId) {
+          return {
+            success: false,
+            status_code: 403,
+            message: 'You are not authorized to view comments for this ticket',
+          };
+        }
+      }
+
+      const limit = query.limit || 10;
+      const page = query.page || 1;
+      const skip = (page - 1) * limit;
+      const filter = { ticket_id: new Types.ObjectId(ticketId) };
+
+      const total = await this.commentsModel.countDocuments(filter).exec();
+      const comments = await this.commentsModel
+        .find(filter)
+        .populate('sender', 'name email role.name')
+        .populate('ticket_id', 'ticket_number')
+        .sort({ created_at: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec();
+
+      const pages = Math.ceil(total / limit);
+
+      const formattedComments = comments.map(comment => this._flattenTicketId(comment));
+
+      return {
+        success: true,
+        status_code: 200,
+        message: 'Ticket comments retrieved successfully',
+        data: {
+          comments: formattedComments,
+          totalRecords: total,
+          currentPage: page,
+          totalPages: pages,
+        },
+      };
+    } catch (error) {
+      this.logger.error('Error getting ticket comments', error);
+      return { success: false, status_code: 500, message: 'Failed to retrieve comments' };
     }
+  }
 
-    const limit = query.limit || 10;
-    const page = query.page || 1;
-    const skip = (page - 1) * limit;
-    const filter = { ticket_id: new Types.ObjectId(ticketId) };
-
-    const total = await this.commentsModel.countDocuments(filter).exec();
-    const comments = await this.commentsModel
-      .find(filter)
-      .populate('sender', 'name email role.name')
-      .populate('ticket_id', 'ticket_number')
-      .sort({ created_at: -1 })
-      .skip(skip)
-      .limit(limit)
-      .exec();
-
-    const pages = Math.ceil(total / limit);
-
-    const formattedComments = comments.map(comment => this._flattenTicketId(comment));
-
-    return {
-      success: true,
-      status_code: 200,
-      message: 'Ticket comments retrieved successfully',
-      data: {
-        comments: formattedComments,
-        totalRecords: total,
-        currentPage: page,
-        totalPages: pages,
-      },
+  /**
+   * Retrieves all tickets created by a specific user with pagination, filtering, and search support.
+   */
+  async getTicketsCreatedByUser(userId: string, query: GetTicketsQueryDTO): Promise<{
+    success: boolean;
+    status_code: number;
+    message: string;
+    data?: {
+      tickets: any[];
+      totalRecords: number;
+      currentPage: number;
+      totalPages: number;
     };
+  }> {
+    try {
+      const filter: any = { created_by: new Types.ObjectId(userId) };
+
+      if (query.status && query.status !== 'all') {
+        filter.status = query.status;
+      }
+      if (query.category && query.category !== 'all') {
+        filter.category = new Types.ObjectId(query.category);
+      }
+      if (query.search) {
+        filter.$or = [
+          { title: { $regex: query.search, $options: 'i' } },
+          { description: { $regex: query.search, $options: 'i' } },
+        ];
+      }
+
+      const limit = query.limit || 10;
+      const page = query.page || 1;
+      const skip = (page - 1) * limit;
+
+      const total = await this.ticketsModel.countDocuments(filter).exec();
+      const tickets = await this.ticketsModel
+        .find(filter)
+        .populate('category', 'name description')
+        .populate('created_by', 'name email')
+        .populate('assigned_to', 'name email')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec();
+
+      const pages = Math.ceil(total / limit);
+
+      return {
+        success: true,
+        status_code: 200,
+        message: 'Tickets retrieved successfully',
+        data: {
+          tickets: tickets.map(t => this._formatTicket(t)),
+          totalRecords: total,
+          currentPage: page,
+          totalPages: pages,
+        },
+      };
+    } catch (error) {
+      this.logger.error(`Error getting tickets created by user: ${userId}`, error);
+      return { success: false, status_code: 500, message: 'Failed to retrieve tickets' };
+    }
+  }
+
+  /**
+   * Retrieves all tickets assigned to a specific agent/admin with pagination, filtering, and search support.
+   */
+  async getTicketsAssignedToAgent(agentId: string, query: GetTicketsQueryDTO): Promise<{
+    success: boolean;
+    status_code: number;
+    message: string;
+    data?: {
+      tickets: any[];
+      totalRecords: number;
+      currentPage: number;
+      totalPages: number;
+    };
+  }> {
+    try {
+      const filter: any = { assigned_to: new Types.ObjectId(agentId) };
+
+      if (query.status && query.status !== 'all') {
+        filter.status = query.status;
+      }
+      if (query.category && query.category !== 'all') {
+        filter.category = new Types.ObjectId(query.category);
+      }
+      if (query.search) {
+        filter.$or = [
+          { title: { $regex: query.search, $options: 'i' } },
+          { description: { $regex: query.search, $options: 'i' } },
+        ];
+      }
+
+      const limit = query.limit || 10;
+      const page = query.page || 1;
+      const skip = (page - 1) * limit;
+
+      const total = await this.ticketsModel.countDocuments(filter).exec();
+      const tickets = await this.ticketsModel
+        .find(filter)
+        .populate('category', 'name description')
+        .populate('created_by', 'name email')
+        .populate('assigned_to', 'name email')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec();
+
+      const pages = Math.ceil(total / limit);
+
+      return {
+        success: true,
+        status_code: 200,
+        message: 'Tickets retrieved successfully',
+        data: {
+          tickets: tickets.map(t => this._formatTicket(t)),
+          totalRecords: total,
+          currentPage: page,
+          totalPages: pages,
+        },
+      };
+    } catch (error) {
+      this.logger.error(`Error getting tickets assigned to agent: ${agentId}`, error);
+      return { success: false, status_code: 500, message: 'Failed to retrieve tickets' };
+    }
   }
 }
+

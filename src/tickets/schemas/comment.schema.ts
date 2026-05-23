@@ -21,4 +21,5 @@ export class Comments extends Document {
 
 export const CommentsSchema = SchemaFactory.createForClass(Comments);
 CommentsSchema.index({ ticket_id: 1 });
+CommentsSchema.index({ sender: 1 });
 export type CommentsDocument = HydratedDocument<Comments>;

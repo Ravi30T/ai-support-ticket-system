@@ -38,17 +38,29 @@ export class SocketsGateway implements OnGatewayConnection, OnGatewayDisconnect 
   }
 
   emitTicketUpdate(ticketId: string, data: any) {
-    this.server.to(ticketId).emit('ticket_updated', data);
-    this.logger.log(`Emitted ticket_updated for ticket ${ticketId}`);
+    try {
+      this.server.to(ticketId).emit('ticket_updated', data);
+      this.logger.log(`Emitted ticket_updated for ticket ${ticketId}`);
+    } catch (error) {
+      this.logger.error(`Error emitting ticket_updated for ticket ${ticketId}`, error);
+    }
   }
 
   emitTicketAssigned(ticketId: string, data: any) {
-    this.server.to(ticketId).emit('ticket_assigned', data);
-    this.logger.log(`Emitted ticket_assigned for ticket ${ticketId}`);
+    try {
+      this.server.to(ticketId).emit('ticket_assigned', data);
+      this.logger.log(`Emitted ticket_assigned for ticket ${ticketId}`);
+    } catch (error) {
+      this.logger.error(`Error emitting ticket_assigned for ticket ${ticketId}`, error);
+    }
   }
 
   emitNewComment(ticketId: string, data: any) {
-    this.server.to(ticketId).emit('new_comment', data);
-    this.logger.log(`Emitted new_comment for ticket ${ticketId}`);
+    try {
+      this.server.to(ticketId).emit('new_comment', data);
+      this.logger.log(`Emitted new_comment for ticket ${ticketId}`);
+    } catch (error) {
+      this.logger.error(`Error emitting new_comment for ticket ${ticketId}`, error);
+    }
   }
 }

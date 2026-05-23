@@ -223,9 +223,7 @@ export class TicketsController {
       this.logger.error('Error in listTickets', err.stack);
       const status = err.status ?? err.statusCode ?? 500;
       const message = err.message || 'Internal server error';
-      return res
-        .status(status)
-        .send({ success: false, status_code: status, message });
+      return res.status(status).send({ success: false, status_code: status, message });
     }
   }
 

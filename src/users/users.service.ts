@@ -12,24 +12,44 @@ export class UsersService {
   ) {}
 
   async create(userData: any): Promise<UsersDocument> {
-    return this.usersModel.create(userData);
+    try {
+      return await this.usersModel.create(userData);
+    } catch (error) {
+      this.logger.error('Error creating user', error);
+      throw error;
+    }
   }
 
   async findByEmail(email: string): Promise<UsersDocument | null> {
-    return this.usersModel
-      .findOne({ email: email.toLowerCase().trim() })
-      .populate('role')
-      .exec();
+    try {
+      return await this.usersModel
+        .findOne({ email: email.toLowerCase().trim() })
+        .populate('role')
+        .exec();
+    } catch (error) {
+      this.logger.error(`Error finding user by email: ${email}`, error);
+      throw error;
+    }
   }
 
   async findById(id: string): Promise<UsersDocument | null> {
-    return this.usersModel.findById(id).populate('role').exec();
+    try {
+      return await this.usersModel.findById(id).populate('role').exec();
+    } catch (error) {
+      this.logger.error(`Error finding user by id: ${id}`, error);
+      throw error;
+    }
   }
 
   async update(id: string, updateData: any): Promise<UsersDocument | null> {
-    return this.usersModel
-      .findByIdAndUpdate(id, updateData, { new: true })
-      .populate('role')
-      .exec();
+    try {
+      return await this.usersModel
+        .findByIdAndUpdate(id, updateData, { new: true })
+        .populate('role')
+        .exec();
+    } catch (error) {
+      this.logger.error(`Error updating user with id: ${id}`, error);
+      throw error;
+    }
   }
 }

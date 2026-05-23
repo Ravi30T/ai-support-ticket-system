@@ -6,10 +6,11 @@ import {
 import { AppModule } from './app.module';
 import { IoAdapter } from '@nestjs/platform-socket.io';
 import cors from '@fastify/cors';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap');
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter({ logger: true }),
@@ -67,11 +68,9 @@ async function bootstrap() {
 
   await app.listen(port);
 
-  console.log(`Server started on port : ${port}`);
-  console.log(
-    `Swagger documentation available at http://localhost:${port}/api`,
-  );
+  logger.log(`Server started on port : ${port}`);
+  logger.log(`Swagger documentation available at http://localhost:${port}/api`);
 }
 bootstrap().catch((err) => {
-  console.error('Error starting server:', err);
+  Logger.error('Error starting server:', err);
 });
