@@ -61,4 +61,13 @@ export class CategoryService {
       return null;
     }
   }
+
+  async findAll(): Promise<CategoriesDocument[]> {
+    try {
+      return this.categoriesModel.find().exec();
+    } catch (error) {
+      this.logger.error('Error in findAll', error);
+      return [];
+    }
+  }
 }

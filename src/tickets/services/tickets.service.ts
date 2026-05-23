@@ -671,5 +671,46 @@ export class TicketsService {
       return { success: false, status_code: 500, message: 'Failed to retrieve tickets' };
     }
   }
+
+  async updateTicketCategory(ticketId: string, categoryId: string, userId: string, userRole: string): Promise<{ success: boolean; status_code: number; message: string; data?: any }> {
+    try {
+      const ticket = await this.ticketsModel.findById(ticketId).exec();
+      if (!ticket) {
+        return { success: false, status_code: 404, message: 'Ticket not found' };
+      }
+
+      if (userRole.toLowerCase() !== 'admin') {
+        if (ticket.created_by.toString() !== userId) {
+          return {
+            success: false,
+            status_code: 403,
+            message: 'You are not authorized to update this ticket category',
+          };
+        }
+      }
+
+      ticket.category = new Types.ObjectId(categoryId);
+      const updatedTicket = await ticket.save();
+
+      await this._logActivity(
+        ticket._id.toString(),
+        userId,
+        'category_changed',
+        `Category updated via Auto-Categorization`,
+      );
+
+      await updatedTicket.populate('category', 'name description');
+
+      return {
+        success: true,
+        status_code: 200,
+        message: 'Ticket category updated successfully',
+        data: this._formatTicket(updatedTicket),
+      };
+    } catch (error) {
+      this.logger.error('Error updating ticket category', error);
+      return { success: false, status_code: 500, message: 'Failed to update ticket category' };
+    }
+  }
 }
 

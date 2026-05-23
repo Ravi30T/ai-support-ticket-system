@@ -8,6 +8,7 @@ import { Activities, ActivitiesSchema } from './schemas/activity.schema';
 import { TicketsController } from './tickets.controller';
 import { TicketsService } from './services/tickets.service';
 import { CategoryService } from './services/category.service';
+import { AiService } from './services/ai.service';
 import { UsersModule } from '../users/users.module';
 
 @Module({
@@ -22,7 +23,7 @@ import { UsersModule } from '../users/users.module';
     forwardRef(() => UsersModule),
   ],
   controllers: [TicketsController],
-  providers: [TicketsService, CategoryService],
-  exports: [TicketsService, CategoryService],
+  providers: [TicketsService, CategoryService, AiService],
+  exports: [TicketsService, CategoryService, AiService],
 })
 export class TicketsModule {}

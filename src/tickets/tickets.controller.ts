@@ -23,6 +23,7 @@ import { AuthGuard } from '../shared/guards/auth.guard';
 import { RolesGuard } from '../shared/guards/roles.guard';
 import { Roles } from '../shared/decorators/roles.decorator';
 import { TicketsService } from './services/tickets.service';
+import { AiService } from './services/ai.service';
 import {
   CreateTicketDTO,
   UpdateTicketStatusDTO,
@@ -53,7 +54,10 @@ interface HttpExceptionLike {
 export class TicketsController {
   private readonly logger = new Logger(TicketsController.name);
 
-  constructor(private readonly ticketsService: TicketsService) { }
+  constructor(
+    private readonly ticketsService: TicketsService,
+    private readonly aiService: AiService,
+  ) { }
 
   @Post('/')
   @UseGuards(AuthGuard, RolesGuard)
@@ -325,6 +329,67 @@ export class TicketsController {
     } catch (error: unknown) {
       const err = error as HttpExceptionLike;
       this.logger.error('Error in getTicketComments', err.stack);
+      const status = err.status ?? err.statusCode ?? 500;
+      const message = err.message || 'Internal server error';
+      return res
+        .status(status)
+        .send({ success: false, status_code: status, message });
+    }
+  }
+
+  @Get('/:id/summary')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Generate ticket summary using AI' })
+  @ApiParam({ name: 'id', type: 'string', description: 'Ticket ID' })
+  @ApiResponse({ status: 200, description: 'Summary generated successfully.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'Ticket not found.' })
+  async generateTicketSummary(
+    @Param('id') id: string,
+    @Req() req: RequestWithUser,
+    @Res() res: FastifyReply,
+  ) {
+    try {
+      const userId = req.user.sub;
+      const userRole = req.user.role;
+      const result = await this.aiService.generateTicketSummary(id, userId, userRole);
+      return res.status(result.status_code).send(result);
+    } catch (error: unknown) {
+      const err = error as HttpExceptionLike;
+      this.logger.error('Error in generateTicketSummary', err.stack);
+      const status = err.status ?? err.statusCode ?? 500;
+      const message = err.message || 'Internal server error';
+      return res
+        .status(status)
+        .send({ success: false, status_code: status, message });
+    }
+  }
+
+  @Post('/:id/auto-categorize')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Auto-categorize ticket using AI based on content' })
+  @ApiParam({ name: 'id', type: 'string', description: 'Ticket ID' })
+  @ApiResponse({ status: 200, description: 'Ticket auto-categorized successfully.' })
+  @ApiResponse({ status: 400, description: 'Bad Request. No categories available or matching failed.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'Ticket not found.' })
+  async autoCategorizeTicket(
+    @Param('id') id: string,
+    @Req() req: RequestWithUser,
+    @Res() res: FastifyReply,
+  ) {
+    try {
+      const userId = req.user.sub;
+      const userRole = req.user.role;
+      const result = await this.aiService.autoCategorizeTicket(id, userId, userRole);
+      return res.status(result.status_code).send(result);
+    } catch (error: unknown) {
+      const err = error as HttpExceptionLike;
+      this.logger.error('Error in autoCategorizeTicket', err.stack);
       const status = err.status ?? err.statusCode ?? 500;
       const message = err.message || 'Internal server error';
       return res
